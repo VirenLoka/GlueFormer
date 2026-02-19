@@ -1,0 +1,81 @@
+# ============================================================
+# SMILES Transformer — Default Configuration
+# ============================================================
+
+# ---------- Tokenizer ----------
+tokenizer:
+  # Character-level vocabulary is built from the training data.
+  # These special tokens are always present.
+  pad_token: "<pad>"
+  bos_token: "<bos>"
+  eos_token: "<eos>"
+  unk_token: "<unk>"
+  max_len: 128            # max SMILES string length (in tokens)
+
+# ---------- Model ----------
+model:
+  d_model: 256            # embedding / hidden dimension
+  n_heads: 8              # number of attention heads
+  n_layers: 6             # number of transformer decoder blocks
+  d_ff: 1024              # feed-forward inner dimension
+  dropout: 0.1
+  activation: "gelu"      # gelu | relu
+
+# ---------- Dataset ----------
+dataset:
+  name: "zinc"            # zinc | custom
+  # For zinc, the split is handled automatically.
+  # For custom, provide paths below.
+  custom_train_path: null
+  custom_val_path: null
+  smiles_column: "smiles"  # column name if CSV
+  val_split: 0.1           # fraction held out for validation
+  max_samples: null         # null = use all; set an int to subsample
+  num_workers: 4
+
+# ---------- Training ----------
+training:
+  seed: 42
+  epochs: 50
+  batch_size: 512
+  gradient_accumulation_steps: 1
+  max_grad_norm: 1.0
+
+  # Optimizer
+  optimizer: "adamw"       # adam | adamw
+  lr: 3.0e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.98]
+  eps: 1.0e-9
+
+  # Cosine warmup schedule
+  scheduler:
+    warmup_steps: 1000
+    min_lr: 1.0e-6
+
+  # Checkpointing
+  checkpoint_dir: "checkpoints"
+  save_every_n_epochs: 5
+  keep_last_k: 3
+
+# ---------- Validation / Chemistry ----------
+validation:
+  # RDKit validity check on sampled molecules every N steps
+  validity_check_every_n_steps: 500
+  num_samples_for_validity: 256
+  temperature: 1.0
+  top_k: 0                 # 0 = disabled
+  top_p: 0.9               # nucleus sampling
+
+# ---------- Logging ----------
+logging:
+  use_wandb: true
+  wandb_project: "smiles-transformer"
+  wandb_entity: null        # null = default entity
+  wandb_run_name: null      # null = auto-generated
+  log_every_n_steps: 50
+
+# ---------- Device ----------
+device:
+  accelerator: "auto"       # auto | cpu | cuda | mps
+  precision: "fp32"         # fp32 | fp16 | bf16
