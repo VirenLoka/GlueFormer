@@ -1,0 +1,52 @@
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/home/jovyan/GlueFormer/train.py", line 636, in <module>
+[rank1]:     main()
+[rank1]:     ~~~~^^
+[rank1]:   File "/home/jovyan/GlueFormer/train.py", line 632, in main
+[rank1]:     train(cfg)
+[rank1]:     ~~~~~^^^^^
+[rank1]:   File "/home/jovyan/GlueFormer/train.py", line 551, in train
+[rank1]:     out = model(input_ids, labels=labels)
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/parallel/distributed.py", line 1666, in forward
+[rank1]:     else self._run_ddp_forward(*inputs, **kwargs)
+[rank1]:          ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/parallel/distributed.py", line 1492, in _run_ddp_forward
+[rank1]:     return self.module(*inputs, **kwargs)  # type: ignore[index]
+[rank1]:            ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/home/jovyan/GlueFormer/model.py", line 166, in forward
+[rank1]:     x = block(x)
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/home/jovyan/GlueFormer/model.py", line 86, in forward
+[rank1]:     x = x + self.attn(self.ln1(x))
+[rank1]:             ~~~~~~~~~^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/home/jovyan/GlueFormer/model.py", line 44, in forward
+[rank1]:     qkv = self.qkv(x).reshape(B, T, 3, self.n_heads, self.head_dim)
+[rank1]:           ~~~~~~~~^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/home/jovyan/.conda/envs/glueformer/lib/python3.14/site-packages/torch/nn/modules/linear.py", line 134, in forward
+[rank1]:     return F.linear(input, self.weight, self.bias)
+[rank1]:            ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]: KeyboardInterrupt

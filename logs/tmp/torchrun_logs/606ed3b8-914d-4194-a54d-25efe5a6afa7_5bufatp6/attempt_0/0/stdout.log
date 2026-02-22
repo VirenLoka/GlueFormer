@@ -1,0 +1,8 @@
+Epoch 38 | Step 5450 | Loss 2.1719 | LR 1.65e-04
+Epoch 38 | Step 5500 | Loss 2.1619 | LR 1.64e-04
+  ↳ Validity: 5.27% | Uniqueness: 100.00% | Examples: ['CCCCN(CC)C(=O)N[C@@H]1CCCC[C@H]1C[NH3+]', 'CCC(C)(C)N(C)C(=O)C[C@H]1SC(N)=NC1=O', 'CC(C)CCN1C(=O)[C@@H]2[C@H](C1=O)[C@@H]1C=C[C@@H]2C1', 'C[C@H](CNC(=O)N[C@@H]1CCCC[C@@H]1C)[NH+]1CCCC1']
+[rank 0] Saved checkpoint → checkpoints/checkpoint_epoch0038.pt
+[rank 0] Removed old checkpoint checkpoint_epoch0035.pt
+Epoch 39 | Step 5550 | Loss 2.1554 | LR 1.64e-04
+Epoch 39 | Step 5600 | Loss 2.1588 | LR 1.63e-04
+Epoch 39 | Step 5650 | Loss 2.1123 | LR 1.62e-04

@@ -14,6 +14,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 
 from tokenizer import SmilesTokenizer
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,15 @@ logger = logging.getLogger(__name__)
 # ======================================================================
 class SmilesDataset(Dataset):
     """
-    A PyTorch Dataset that stores encoded + padded SMILES sequences.
+    A PyTorch Dataset that lazily encodes SMILES sequences on access.
+
+    Stores only raw strings in memory. Tokenization and padding happen
+    in __getitem__, so shared memory usage scales with batch size, not
+    dataset size.
 
     Each item is a dict with:
-        input_ids : LongTensor [max_len]   (<bos> ... tokens ... <eos> <pad>*)
-        labels    : LongTensor [max_len]   (shifted: tokens ... <eos> <pad>* -100*)
+        input_ids : LongTensor [max_len-1]
+        labels    : LongTensor [max_len-1]
     """
 
     def __init__(
@@ -37,22 +42,20 @@ class SmilesDataset(Dataset):
     ):
         super().__init__()
         self.tokenizer = tokenizer
-        self.data: List[torch.Tensor] = []
-
-        for smi in smiles_list:
-            ids = tokenizer.encode(smi, add_special=True)
-            ids = tokenizer.pad_sequence(ids)
-            self.data.append(torch.tensor(ids, dtype=torch.long))
+        # Store only raw strings — no pre-encoding
+        self.smiles_list: List[str] = smiles_list
 
     def __len__(self) -> int:
-        return len(self.data)
+        return len(self.smiles_list)
 
     def __getitem__(self, idx: int) -> dict:
-        ids = self.data[idx]
-        # For autoregressive LM: input = ids[:-1], label = ids[1:]
+        smi = self.smiles_list[idx]
+        ids = self.tokenizer.encode(smi, add_special=True)
+        ids = self.tokenizer.pad_sequence(ids)
+        ids = torch.tensor(ids, dtype=torch.long)
+
         input_ids = ids[:-1].clone()
         labels = ids[1:].clone()
-        # Mask padding in labels with -100 so loss ignores them
         labels[labels == self.tokenizer.pad_idx] = -100
         return {"input_ids": input_ids, "labels": labels}
 
@@ -62,16 +65,7 @@ class SmilesDataset(Dataset):
 # ======================================================================
 
 def _load_zinc(max_samples: Optional[int] = None) -> List[str]:
-    """Download ZINC250K via Therapeutics Data Commons."""
-    try:
-        from tdc.generation import MolGen
-    except ImportError:
-        raise ImportError(
-            "Install tdc to use the ZINC dataset:\n"
-            "  pip install PyTDC --break-system-packages"
-        )
-    data = MolGen(name="ZINC")
-    df = data.get_data()
+    df = pd.read_parquet('data/zinc_250k.parquet')
     smiles = df["smiles"].dropna().tolist()
     if max_samples is not None:
         smiles = smiles[:max_samples]
@@ -83,7 +77,6 @@ def _load_custom(path: str, smiles_column: str = "smiles") -> List[str]:
     """Load SMILES from a CSV or a plain-text file (one SMILES per line)."""
     p = Path(path)
     if p.suffix == ".parquet":
-        import pandas as pd
         df = pd.read_parquet(p)
         return df[smiles_column].dropna().tolist()
     else:
@@ -104,7 +97,6 @@ def _validate_smiles(smiles_list: List[str]) -> List[str]:
     for smi in smiles_list:
         mol = Chem.MolFromSmiles(smi)
         if mol is not None:
-            # Canonicalize
             valid.append(Chem.MolToSmiles(mol))
     logger.info(
         f"SMILES validation: {len(valid)}/{len(smiles_list)} valid "
@@ -149,7 +141,7 @@ def build_dataloaders(
     tokenizer.build_vocab(smiles)
     logger.info(f"Vocabulary size: {tokenizer.vocab_size}")
 
-    # ---- Create dataset ----
+    # ---- Create dataset (stores only raw strings) ----
     full_ds = SmilesDataset(smiles, tokenizer)
 
     # ---- Train / val split ----
@@ -169,6 +161,7 @@ def build_dataloaders(
         num_workers=ds_cfg.get("num_workers", 4),
         pin_memory=True,
         drop_last=True,
+        persistent_workers=True,   # avoids worker respawn overhead each epoch
     )
     val_loader = DataLoader(
         val_ds,
@@ -176,6 +169,7 @@ def build_dataloaders(
         shuffle=False,
         num_workers=ds_cfg.get("num_workers", 4),
         pin_memory=True,
+        persistent_workers=True,
     )
 
     logger.info(f"Train samples: {train_size} | Val samples: {val_size}")

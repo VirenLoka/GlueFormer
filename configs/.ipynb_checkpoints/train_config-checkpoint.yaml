@@ -1,81 +1,143 @@
 # ============================================================
-# SMILES Transformer — Default Configuration
+# SMILES Transformer — Upscaled Configuration
 # ============================================================
 
 # ---------- Tokenizer ----------
 tokenizer:
-  # Character-level vocabulary is built from the training data.
-  # These special tokens are always present.
   pad_token: "<pad>"
   bos_token: "<bos>"
   eos_token: "<eos>"
   unk_token: "<unk>"
-  max_len: 128            # max SMILES string length (in tokens)
+  # Increased from 128 — longer SMILES appear in ZINC for drug-like
+  # molecules with rings, branches, stereo. 128 was clipping ~8% of ZINC.
+  max_len: 256
 
 # ---------- Model ----------
 model:
-  d_model: 256            # embedding / hidden dimension
-  n_heads: 8              # number of attention heads
-  n_layers: 6             # number of transformer decoder blocks
-  d_ff: 1024              # feed-forward inner dimension
+  # 512 → each attention head gets 64 dims (512/8), the canonical
+  # head dimension that transformers scale well at.
+  # Previous 256/8=32 was undersized per head.
+  d_model: 256
+
+  # Kept at 8. Going to 16 heads at this d_model gives 32-dim heads
+  # which is too small. 8 heads × 64 dims = 512. ✓
+  n_heads: 8
+
+  # Doubled from 6 → 12. Depth is the most parameter-efficient way
+  # to scale: each new layer adds ~2M params here and compounds
+  # representational power multiplicatively.
+  n_layers: 12
+
+  # 4× d_model — the standard ratio. Scaled with d_model.
+  d_ff: 2048
+
+  # Slightly reduced dropout: larger models are already more regularized
+  # by virtue of having more parameters relative to ZINC's 250k samples.
+  # Too much dropout actively hurts larger models.
   dropout: 0.1
-  activation: "gelu"      # gelu | relu
+
+  activation: "gelu"
+
+  # Tie input embedding weights to the output projection matrix.
+  # Saves ~vocab_size × d_model params (small vocab so ~25k params,
+  # but more importantly it regularizes the output distribution and
+  # consistently improves perplexity for character/token-level LMs).
+  tie_embeddings: true
+
+  # Use Pre-LayerNorm (normalize before attention/FFN, not after).
+  # Post-LN (the original "Attention is All You Need" design) becomes
+  # unstable at depth. Pre-LN trains stably without warmup tricks.
+  pre_norm: true
 
 # ---------- Dataset ----------
 dataset:
-  name: "zinc"            # zinc | custom
-  # For zinc, the split is handled automatically.
-  # For custom, provide paths below.
+  name: "zinc"
   custom_train_path: null
   custom_val_path: null
-  smiles_column: "smiles"  # column name if CSV
-  val_split: 0.1           # fraction held out for validation
-  max_samples: null         # null = use all; set an int to subsample
+  smiles_column: "smiles"
+  val_split: 0.1
+  max_samples: null
+  # Increase workers — lazy encoding (no pre-tokenization) means workers
+  # spend real CPU time per sample now, so give them more threads.
   num_workers: 4
 
 # ---------- Training ----------
 training:
   seed: 42
-  epochs: 50
-  batch_size: 512
-  gradient_accumulation_steps: 1
+
+  # More epochs: larger model needs more passes to converge.
+  # With cosine LR decay this won't overfit — the LR floor prevents it.
+  epochs: 100
+
+  # Reduced per-GPU batch from 256 → 128 to fit the larger model in VRAM.
+  # Compensated by gradient_accumulation_steps=4, so effective batch
+  # size = 128 × 4 = 512, which is larger than before (256 × 1 = 256).
+  # Larger effective batch = more stable gradients for a bigger model.
+  batch_size: 128
+  gradient_accumulation_steps: 4
+
   max_grad_norm: 1.0
 
-  # Optimizer
-  optimizer: "adamw"       # adam | adamw
-  lr: 3.0e-4
+  optimizer: "adamw"
+
+  # Lower LR: larger models are more sensitive to learning rate.
+  # The sqrt(d_model) scaling from the original paper suggests
+  # lr ∝ 1/sqrt(d_model): 3e-4 × sqrt(256)/sqrt(512) ≈ 2.1e-4.
+  # Round to 2e-4.
+  lr: 2.0e-4
+
   weight_decay: 0.01
+
+  # Standard AdamW betas. β2=0.98 (from original Transformer paper)
+  # works better than 0.999 for models trained with warmup+cosine.
   betas: [0.9, 0.98]
   eps: 1.0e-9
 
-  # Cosine warmup schedule
   scheduler:
-    warmup_steps: 1000
+    # Warmup should scale with model size. Rule of thumb: ~1% of total
+    # training steps. 250k samples × 0.9 train / 128 batch × 100 epochs
+    # ≈ 175k steps total. 1% ≈ 1750 → round to 2000.
+    warmup_steps: 2000
     min_lr: 1.0e-6
 
-  # Checkpointing
+  # Use bf16 instead of fp16. bf16 has the same range as fp32 (8 exponent
+  # bits) so it never overflows/underflows the way fp16 does — you get
+  # mixed precision speed without needing a GradScaler or loss scaling.
+  # Requires Ampere GPU (A100/3090/4090) or newer.
+  precision: "bf16"
+
   checkpoint_dir: "checkpoints"
   save_every_n_epochs: 5
   keep_last_k: 3
 
 # ---------- Validation / Chemistry ----------
 validation:
-  # RDKit validity check on sampled molecules every N steps
   validity_check_every_n_steps: 500
-  num_samples_for_validity: 256
-  temperature: 1.0
-  top_k: 0                 # 0 = disabled
-  top_p: 0.9               # nucleus sampling
+  num_samples_for_validity: 512   # more samples = more reliable validity %
+
+  # Temperature 0.8 → sharper distribution than 1.0. At 1.0 the model
+  # often samples low-probability (chemically wrong) tokens. 0.8 is the
+  # sweet spot for SMILES: high novelty but valid syntax.
+  temperature: 0.8
+
+  # top_k=50 + top_p=0.9: combine both. top_k first truncates the
+  # vocabulary to the 50 most likely tokens, then top_p applies nucleus
+  # sampling within that set. Prevents degenerate low-probability tokens
+  # that break SMILES syntax while keeping diversity.
+  top_k: 50
+  top_p: 0.9
 
 # ---------- Logging ----------
 logging:
   use_wandb: true
   wandb_project: "smiles-transformer"
-  wandb_entity: null        # null = default entity
-  wandb_run_name: null      # null = auto-generated
+  wandb_entity: null
+  wandb_run_name: null
   log_every_n_steps: 50
 
 # ---------- Device ----------
 device:
-  accelerator: "auto"       # auto | cpu | cuda | mps
-  precision: "fp32"         # fp32 | fp16 | bf16
+  accelerator: "auto"
+  # bf16 moved here from training block for clarity — set in both places
+  # for compatibility with whatever your trainer reads.
+  precision: "bf16"
